@@ -46,6 +46,12 @@ export default defineConfig({
 
   projects: [
     {
+      // Criterio de entrada del ambiente: si la IA está configurada, el proveedor debe responder.
+      // Ningún proyecto depende de este: un problema de ambiente no bloquea las pruebas del producto.
+      name: 'environment',
+      testDir: './tests/environment',
+    },
+    {
       // Pruebas del propio framework (IA simulada, sin red): validan la lógica de A, B y C.
       name: 'framework',
       testDir: './tests/framework',
