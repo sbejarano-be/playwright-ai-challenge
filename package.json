@@ -1,0 +1,37 @@
+{
+  "name": "playwright-ai-challenge",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Automatización E2E de Automation Exercise con Playwright, TypeScript e IA: selectores auto-reparables, aserciones semánticas y datos sintéticos.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:framework": "playwright test --project=framework",
+    "test:e2e": "playwright test --project=e2e",
+    "report": "playwright show-report",
+    "allure:generate": "allure generate allure-results --output allure-report",
+    "allure:open": "allure open allure-report",
+    "typecheck": "tsc --noEmit",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@faker-js/faker": "^10.6.0",
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.20.4",
+    "allure": "^3.18.0",
+    "allure-playwright": "^3.12.2",
+    "eslint": "^10.11.0",
+    "eslint-plugin-playwright": "^2.12.0",
+    "prettier": "^3.9.9",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.70.1",
+    "zod": "^4.6.5"
+  }
+}

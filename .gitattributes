@@ -1,0 +1,2 @@
+# Finales de línea LF en todas las plataformas (el CI corre en Linux).
+* text=auto eol=lf
