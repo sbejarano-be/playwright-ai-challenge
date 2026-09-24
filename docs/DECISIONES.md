@@ -99,13 +99,15 @@ Algunos puntos del enunciado admiten más de una interpretación. Este documento
   2. **Modificación de respuestas:** HTML con selectores cambiados (D-04) y textos variantes (D-05).
   3. **Aislamiento:** bloqueo de dominios de publicidad y analítica de terceros en todas las pruebas.
 
-### D-08. Ejecución sin clave de IA
+### D-08. Ejecución sin IA o con la IA mal configurada
 
 - **Decisión:**
-  - Proveedores `openai`, `anthropic` y `ollama` detrás de una interfaz común (patrón Strategy), elegidos con `AI_PROVIDER`. Ollama permite ejecutar sin costo y sin clave; si no responde, se trata como no disponible.
+  - Proveedores `openai`, `anthropic`, `gemini` (API nativa) y `ollama` detrás de una interfaz común (patrón Strategy), elegidos con `AI_PROVIDER`. Ollama permite ejecutar sin costo y sin clave; si no responde, se trata como no disponible.
+  - **Verificación previa:** cada proceso hace una petición mínima al proveedor por el mismo camino que usan las pruebas (clave, modelo, parámetros y modo JSON). Si falla, la IA se trata como no disponible y el motivo es el mensaje del proveedor.
   - Las pruebas cuyo oráculo principal es la IA (4 de reseñas y la de deriva de selectores) se **omiten con motivo** ("Requiere IA: …"). Hacerlas fallar sería un falso positivo sobre la aplicación.
   - En los flujos E2E (compra y registro), la aserción semántica es complementaria: se ejecutan las verificaciones deterministas y la aserción semántica queda anotada como "no ejecutada". La generación de datos usa Faker.
-  - El pipeline de CI lee la clave de un secreto del repositorio y publica los reportes, así el resultado con IA se puede revisar sin ejecutar nada.
+  - **Criterio de entrada del ambiente:** si la IA está configurada (proveedor y clave), la prueba `el proveedor de IA configurado responde` debe pasar. Si el proveedor rechaza la clave, esa prueba falla con el mensaje marcado `[AMBIENTE]` y Allure la clasifica como problema de ambiente. Ningún proyecto depende de ella: un problema de ambiente no bloquea las pruebas del producto.
+  - El pipeline de CI lee la clave de un secreto y el proveedor de una variable del repositorio, y publica los reportes, así el resultado con IA se puede revisar sin ejecutar nada.
 
 ### D-09. Política de auto-reparación
 
@@ -122,7 +124,7 @@ Algunos puntos del enunciado admiten más de una interpretación. Este documento
 ### D-10. Criterio de aceptación de la aserción semántica
 
 - **Decisión:** `expectAI(textoReal, intencionEsperada)`:
-  - Temperatura 0 y salida JSON validada con zod: `{ verdict: "pass" | "fail", confidence: 0-1, reasoning }`.
+  - Temperatura 0 y salida JSON validada con zod: `{ verdict: "pass" | "fail", confidence: 0-1, reasoning }`. Excepción: con Gemini 3 o posterior no se envía temperatura, porque Google recomienda mantener el valor por defecto (1.0) para evitar ciclos y respuestas degradadas, y el razonamiento se limita al nivel `LOW`. La estabilidad del juez se apoya en la salida validada, el umbral de confianza y el control negativo.
   - Pasa si `verdict` es `pass` y `confidence` es al menos `AI_ASSERT_THRESHOLD` (0,8 por defecto).
   - Antes de llamar a la IA hay verificaciones deterministas: texto visible y no vacío, y fragmentos obligatorios si se indican (`mustInclude`). La IA nunca es el único oráculo.
   - El prompt marca el texto evaluado como dato e indica ignorar cualquier instrucción que contenga (protección contra inyección de prompts desde la UI).
@@ -157,7 +159,7 @@ Algunos puntos del enunciado admiten más de una interpretación. Este documento
 
 ### D-16. Proveedor y modelo por defecto
 
-- **Decisión:** el `.env.example` conserva como ejemplo los valores del enunciado (`openai`, `gpt-4o-mini`). Proveedor y modelo se cambian con dos variables, sin tocar código.
+- **Decisión:** el `.env.example` conserva como ejemplo los valores del enunciado (`openai`, `gpt-4o-mini`). Proveedor y modelo se cambian con dos variables, sin tocar código. Modelos por defecto: `gpt-4o-mini`, `claude-haiku-4-5`, `gemini-3.8-flash` (el que Google recomienda para proyectos nuevos) y `llama3.1`.
 
 ## Notas técnicas descubiertas durante la implementación
 
@@ -165,6 +167,7 @@ Algunos puntos del enunciado admiten más de una interpretación. Este documento
 - **Mensaje de reseña.** `#review-section` mide 0 px de alto porque su contenido es flotante; Playwright lo considera oculto aunque el usuario ve el mensaje. Las pruebas apuntan a la alerta interna.
 - **"Proceed To Checkout" no tiene `href`.** Navega con un script que se enlaza al final de la página; un clic temprano no hace nada. La prueba espera la carga completa y confirma la navegación.
 - **API de cuentas.** Responde HTTP 200 siempre; el resultado real está en el campo `responseCode` del cuerpo.
+- **Clave de un proveedor enviada a otro.** En la primera ejecución en CI se configuró una clave de Gemini, pero `AI_PROVIDER` quedó con su valor por defecto (`openai`). OpenAI respondió 401 y fallaron las 7 pruebas que usan IA, incluidas compra y registro, cuyo flujo funcionaba. De ahí salieron el proveedor nativo de Gemini, la verificación previa y la prueba de ambiente: hoy ese mismo error aparece como una sola falla `[AMBIENTE]` con el mensaje del proveedor.
 
 ## Registro de defectos
 
@@ -179,19 +182,28 @@ Ambos se confirmaron con las pruebas automatizadas contra el sitio real y con el
 
 Ejecución completa sin clave de IA (`npx playwright test`):
 
-| Proyecto         | Pasan | Fallan              | Omitidas         |
-| ---------------- | ----- | ------------------- | ---------------- |
-| framework        | 21    | 0                   | 0                |
-| setup y teardown | 2     | 0                   | 0                |
-| e2e              | 4     | 3 (UI-01 ×2, UI-02) | 5 (requieren IA) |
+| Proyecto         | Pasan | Fallan              | Omitidas              |
+| ---------------- | ----- | ------------------- | --------------------- |
+| environment      | 0     | 0                   | 1 (IA no configurada) |
+| framework        | 28    | 0                   | 0                     |
+| setup y teardown | 2     | 0                   | 0                     |
+| e2e              | 4     | 3 (UI-01 ×2, UI-02) | 5 (requieren IA)      |
 
-Durante el desarrollo, las pruebas con IA se ejecutaron de extremo a extremo contra el sitio real con un servidor que imita la API de OpenAI y da respuestas guionizadas. Eso valida la mecánica: cliente HTTP, deriva de selectores, reescritura del HTML, validación de propuestas, auditoría y reporte de reparaciones. Con un proveedor real, el veredicto de cada aserción depende del modelo.
+Durante el desarrollo, las pruebas con IA se ejecutaron de extremo a extremo contra el sitio real con un servidor local que imita las APIs de OpenAI y de Gemini y da respuestas guionizadas. Eso valida la mecánica: clientes HTTP, verificación previa, deriva de selectores, reescritura del HTML, validación de propuestas, auditoría y reporte de reparaciones. Resultados:
+
+| Escenario                              | environment        | e2e                                                                                   |
+| -------------------------------------- | ------------------ | ------------------------------------------------------------------------------------- |
+| IA disponible (Gemini, API nativa)     | pasa               | 9 pasan; fallan solo UI-01 ×2 y UI-02                                                 |
+| Clave rechazada por el proveedor (401) | falla `[AMBIENTE]` | 4 pasan (compra y registro incluidas); 5 omitidas con motivo; fallan UI-01 ×2 y UI-02 |
+
+Con un proveedor real, el veredicto de cada aserción depende del modelo.
 
 ## Clasificación de resultados
 
 - **Fallida:** la aplicación no cumple lo esperado. Es un defecto del producto (conocido si el mensaje incluye `[UI-xx]`, nuevo si no).
+- **Problema de ambiente:** el proveedor de IA no responde o rechaza la petición (mensaje marcado `[AMBIENTE]`). No es un defecto del producto.
 - **Error de automatización:** excepción en el código de prueba, respuesta inválida del LLM o reparación en modo `strict`.
-- **Omitida con motivo:** falta una dependencia, por ejemplo la IA.
+- **Omitida con motivo:** falta una dependencia, por ejemplo la IA, o la verificación previa del proveedor falló.
 - **Anotada `self-healed`:** pasó, pero hay selectores que actualizar (ver `healing-report.json`).
 
 Mientras la aplicación tenga defectos, una ejecución en rojo es el resultado correcto.

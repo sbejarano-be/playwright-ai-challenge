@@ -1,6 +1,6 @@
 # Automation Exercise · Playwright + IA
 
-Automatización de extremo a extremo de [Automation Exercise](https://automationexercise.com) con **Playwright** y **TypeScript**, Page Object Model y fixtures personalizadas. Integra un LLM (OpenAI, Anthropic u Ollama) para las **tres** opciones del reto:
+Automatización de extremo a extremo de [Automation Exercise](https://automationexercise.com) con **Playwright** y **TypeScript**, Page Object Model y fixtures personalizadas. Integra un LLM (OpenAI, Anthropic, Gemini u Ollama) para las **tres** opciones del reto:
 
 | Opción                        | Qué resuelve                                                                                                         | Dónde             |
 | ----------------------------- | -------------------------------------------------------------------------------------------------------------------- | ----------------- |
@@ -13,7 +13,7 @@ Las pruebas reportan el comportamiento real de la aplicación. La suite termina 
 ## Requisitos previos
 
 - Node.js 22 o superior (ver `.nvmrc`) y npm.
-- Opcional: una API key de OpenAI o Anthropic, u [Ollama](https://ollama.com) corriendo en local. Sin IA la suite también se ejecuta: las pruebas cuyo oráculo es la IA se omiten con el motivo.
+- Opcional: una API key de OpenAI, Anthropic o Gemini, u [Ollama](https://ollama.com) corriendo en local. Sin IA la suite también se ejecuta: las pruebas cuyo oráculo es la IA se omiten con el motivo.
 
 ## Instalación y ejecución
 
@@ -50,20 +50,20 @@ BASE_URL=https://otra-url npx playwright test   # sobrescribir una variable punt
 
 ## Configuración (`.env`)
 
-| Variable              | Uso                                                                   |
-| --------------------- | --------------------------------------------------------------------- |
-| `BASE_URL`            | Aplicación bajo prueba (por defecto `https://automationexercise.com`) |
-| `AI_PROVIDER`         | `openai`, `anthropic`, `ollama` o `none`                              |
-| `AI_API_KEY`          | Clave del proveedor (no se usa con Ollama)                            |
-| `AI_MODEL`            | Modelo; por defecto `gpt-4o-mini`, `claude-haiku-4-5` o `llama3.1`    |
-| `AI_BASE_URL`         | Opcional: gateway compatible con OpenAI u Ollama remoto               |
-| `AI_TIMEOUT_MS`       | Tiempo máximo por llamada a la IA                                     |
-| `AI_ASSERT_THRESHOLD` | Confianza mínima para aprobar una aserción semántica (0,8)            |
-| `HEALING_MODE`        | `report` (anota y continúa), `strict` (falla si repara) u `off`       |
-| `TEST_DATA_FILE`      | Repite una ejecución con un conjunto de datos adjunto a un reporte    |
-| `HTTPS_PROXY`         | Proxy corporativo para el navegador                                   |
+| Variable              | Uso                                                                                             |
+| --------------------- | ----------------------------------------------------------------------------------------------- |
+| `BASE_URL`            | Aplicación bajo prueba (por defecto `https://automationexercise.com`)                           |
+| `AI_PROVIDER`         | `openai`, `anthropic`, `gemini`, `ollama` o `none`. Debe coincidir con el proveedor de la clave |
+| `AI_API_KEY`          | Clave del proveedor (no se usa con Ollama)                                                      |
+| `AI_MODEL`            | Modelo; por defecto `gpt-4o-mini`, `claude-haiku-4-5`, `gemini-3.8-flash` o `llama3.1`          |
+| `AI_BASE_URL`         | Opcional: gateway compatible con OpenAI u Ollama remoto                                         |
+| `AI_TIMEOUT_MS`       | Tiempo máximo por llamada a la IA                                                               |
+| `AI_ASSERT_THRESHOLD` | Confianza mínima para aprobar una aserción semántica (0,8)                                      |
+| `HEALING_MODE`        | `report` (anota y continúa), `strict` (falla si repara) u `off`                                 |
+| `TEST_DATA_FILE`      | Repite una ejecución con un conjunto de datos adjunto a un reporte                              |
+| `HTTPS_PROXY`         | Proxy corporativo para el navegador                                                             |
 
-`.env` está en `.gitignore`: las claves nunca se suben al repositorio. En CI, la clave es un secreto (`AI_API_KEY`) y el proveedor y el modelo son variables del repositorio.
+`.env` está en `.gitignore`: las claves nunca se suben al repositorio. En CI, la clave es un secreto (`AI_API_KEY`) y el proveedor y el modelo son variables del repositorio (ver [Integración continua](#integración-continua)).
 
 ## Cómo funciona cada opción de IA
 
@@ -86,7 +86,7 @@ await expectAI(
 ```
 
 - Primero, verificaciones deterministas (texto visible, no vacío, fragmentos obligatorios): la IA nunca es el único oráculo.
-- LLM como juez con temperatura 0 y respuesta `{ verdict, confidence, reasoning }` validada con zod. Pasa con `verdict = pass` y confianza de al menos 0,8.
+- LLM como juez con temperatura 0 y respuesta `{ verdict, confidence, reasoning }` validada con zod. Pasa con `verdict = pass` y confianza de al menos 0,8. Con Gemini 3 se mantiene la temperatura por defecto, como recomienda Google, y el razonamiento se limita al nivel `LOW`.
 - El razonamiento se adjunta al reporte. El texto de la UI se marca como dato para que no pueda inyectar instrucciones.
 - `reviews.spec.ts` incluye paráfrasis inyectadas por red, que deben pasar, y un **control negativo** con la intención contraria, que debe fallar.
 
@@ -97,11 +97,14 @@ await expectAI(
 - Tarjeta de pago generada localmente (válida según Luhn); nunca la genera el LLM.
 - Si la IA falla o responde datos inválidos, un reintento y luego Faker. El reporte indica la fuente (`ia`, `faker` o `replay`) y adjunta los datos para poder repetir la ejecución con `TEST_DATA_FILE`.
 
-### Sin clave de IA
+### Sin IA, o con la IA mal configurada
 
-- Las pruebas cuyo oráculo principal es la IA se omiten con el motivo (`Requiere IA: AI_API_KEY está vacío…`).
+Al iniciar, cada proceso hace una **verificación previa** del proveedor: una petición mínima por el mismo camino que usan las pruebas (clave, modelo, parámetros y modo JSON). Si no hay clave, o si el proveedor la rechaza:
+
+- Las pruebas cuyo oráculo principal es la IA se omiten con el motivo (`Requiere IA: …`).
 - En los flujos de compra y registro, la aserción semántica queda anotada como "no ejecutada" y las demás verificaciones siguen.
 - Los datos se generan con Faker.
+- Si la IA **está configurada** pero no responde, la prueba de ambiente `el proveedor de IA configurado responde` falla con el mensaje del proveedor, marcado `[AMBIENTE]`. Así, una clave inválida aparece como un solo problema de ambiente y no como fallas del producto.
 
 ## Capacidades de Playwright usadas
 
@@ -119,13 +122,13 @@ await expectAI(
 | UI-01 | Si agregar un producto al carrito falla (error 500 o sin conexión), la UI no avisa al usuario: el producto simplemente no se agrega          | `cart-network.spec.ts`; el script del carrito solo maneja la respuesta exitosa |
 | UI-02 | La reseña no se envía al servidor: el sitio muestra "Thank you for your review." durante 2 segundos, borra el formulario y descarta el texto | `reviews.spec.ts`; ninguna petición sale al enviar                             |
 
-Resultado de referencia sin clave de IA: framework 21 de 21; setup y teardown correctos; E2E con 4 pasan, 3 fallan (UI-01 ×2 y UI-02) y 5 omitidas por requerir IA. Detalle en [docs/DECISIONES.md](docs/DECISIONES.md#resultado-de-referencia).
+Resultado de referencia sin clave de IA: framework 28 de 28; ambiente omitido (IA no configurada); setup y teardown correctos; E2E con 4 pasan, 3 fallan (UI-01 ×2 y UI-02) y 5 omitidas por requerir IA. Detalle en [docs/DECISIONES.md](docs/DECISIONES.md#resultado-de-referencia).
 
 ## Estructura del proyecto
 
 ```
 src/
-├── ai/            Cliente de IA: interfaz común, proveedores (OpenAI, Anthropic, Ollama), auditoría y JSON validado
+├── ai/            Cliente de IA: interfaz común, proveedores (OpenAI, Anthropic, Gemini, Ollama), verificación previa, auditoría y JSON validado
 ├── assertions/    expectAI y el juez semántico
 ├── healing/       Auto-reparación de selectores
 ├── data/          Datos sintéticos (IA + Faker), reglas por país, tarjetas y cuenta compartida
@@ -136,6 +139,7 @@ src/
 ├── reporting/     Reporter que genera healing-report.json
 └── config/        Variables de entorno validadas con zod y rutas
 tests/
+├── environment/   Criterio de entrada del ambiente: el proveedor de IA configurado responde
 ├── setup/         Setup y teardown globales
 ├── e2e/           Compra, registro, reseñas, carrito ante fallos de red y auto-reparación
 └── framework/     Pruebas del propio framework con IA simulada
@@ -144,6 +148,15 @@ tests/
 ## Integración continua
 
 `.github/workflows/e2e-tests.yml` ejecuta la verificación estática y la suite completa en cada push a `main`, en cada pull request y a demanda. Publica el reporte HTML, el de Allure y las evidencias (traces, videos, `healing-report.json`) aunque haya fallas. El estado del job refleja el resultado real.
+
+Para ejecutar las pruebas de IA en CI, configura en **Settings → Secrets and variables → Actions**:
+
+| Tipo     | Nombre        | Valor                                                                              |
+| -------- | ------------- | ---------------------------------------------------------------------------------- |
+| Secreto  | `AI_API_KEY`  | La clave del proveedor                                                             |
+| Variable | `AI_PROVIDER` | El proveedor de esa clave: `gemini`, `openai` o `anthropic` (por defecto `openai`) |
+| Variable | `AI_MODEL`    | Opcional; si no existe se usa el modelo por defecto del proveedor                  |
+| Variable | `AI_BASE_URL` | Opcional; solo para gateways compatibles con OpenAI                                |
 
 ## Decisiones de diseño
 
