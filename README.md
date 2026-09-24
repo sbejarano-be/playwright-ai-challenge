@@ -35,8 +35,8 @@ Otros comandos:
 ```bash
 npm run test:framework        # pruebas del propio framework (sin red, IA simulada)
 npm run test:e2e              # suites E2E (ejecuta antes el setup y al final el teardown)
-npm run allure:generate       # reporte de Allure en allure-report/
-npm run allure:open
+npm run allure:generate       # reporte de Allure: allure-report/index.html, un solo archivo que abre con doble clic
+npm run allure:open           # o servirlo en el navegador
 npm run typecheck && npm run lint
 ```
 
@@ -122,7 +122,7 @@ Al iniciar, cada proceso hace una **verificación previa** del proveedor: una pe
 | UI-01 | Si agregar un producto al carrito falla (error 500 o sin conexión), la UI no avisa al usuario: el producto simplemente no se agrega          | `cart-network.spec.ts`; el script del carrito solo maneja la respuesta exitosa |
 | UI-02 | La reseña no se envía al servidor: el sitio muestra "Thank you for your review." durante 2 segundos, borra el formulario y descarta el texto | `reviews.spec.ts`; ninguna petición sale al enviar                             |
 
-Resultado de referencia sin clave de IA: framework 28 de 28; ambiente omitido (IA no configurada); setup y teardown correctos; E2E con 4 pasan, 3 fallan (UI-01 ×2 y UI-02) y 5 omitidas por requerir IA. Detalle en [docs/DECISIONES.md](docs/DECISIONES.md#resultado-de-referencia).
+Resultado en CI con Gemini (`gemini-3.8-flash`): 43 pruebas, 40 pasan y 3 fallan, que son exactamente los defectos UI-01 (×2) y UI-02. Todas las pruebas con IA pasan y la auto-reparación reparó los 3 selectores del login. Sin clave de IA: framework 28 de 28, ambiente omitido, setup y teardown correctos, y E2E con 4 que pasan, 3 que fallan (los mismos defectos) y 5 omitidas por requerir IA. Detalle en [docs/DECISIONES.md](docs/DECISIONES.md#resultado-de-referencia).
 
 ## Estructura del proyecto
 
@@ -147,7 +147,7 @@ tests/
 
 ## Integración continua
 
-`.github/workflows/e2e-tests.yml` ejecuta la verificación estática y la suite completa en cada push a `main`, en cada pull request y a demanda. Publica el reporte HTML, el de Allure y las evidencias (traces, videos, `healing-report.json`) aunque haya fallas. El estado del job refleja el resultado real.
+`.github/workflows/e2e-tests.yml` ejecuta la verificación estática y la suite completa en cada push a `main`, en cada pull request y a demanda. Publica el reporte HTML, el de Allure y las evidencias (traces, videos, `healing-report.json`) aunque haya fallas. El estado del job refleja el resultado real. En el artefacto `reportes-e2e`, `allure-report/index.html` se abre directamente con doble clic; el reporte HTML de Playwright se abre con `npx playwright show-report playwright-report`.
 
 Para ejecutar las pruebas de IA en CI, configura en **Settings → Secrets and variables → Actions**:
 
