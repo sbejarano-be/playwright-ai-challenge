@@ -1,0 +1,59 @@
+name: Pruebas E2E
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: Playwright + IA
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # Proveedor y modelo como variables del repositorio; la clave como secreto (Settings → Secrets and variables).
+      # Sin secreto, las pruebas cuyo oráculo es la IA se omiten con el motivo.
+      AI_PROVIDER: ${{ vars.AI_PROVIDER || 'openai' }}
+      AI_MODEL: ${{ vars.AI_MODEL }}
+      AI_API_KEY: ${{ secrets.AI_API_KEY }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Instalar dependencias
+        run: npm ci
+
+      - name: Instalar Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Verificación estática
+        run: |
+          npm run typecheck
+          npm run lint
+
+      # El estado del job refleja el resultado real: falla mientras existan defectos en la aplicación.
+      - name: Ejecutar pruebas
+        run: npx playwright test
+
+      - name: Generar reporte de Allure
+        if: always()
+        run: npm run allure:generate
+
+      - name: Publicar reportes y evidencias
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reportes-e2e
+          path: |
+            playwright-report/
+            allure-report/
+            test-results/
+          retention-days: 14
