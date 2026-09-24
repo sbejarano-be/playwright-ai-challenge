@@ -1,4 +1,5 @@
 import { defineConfig, devices } from '@playwright/test';
+import { effectiveModel } from './src/ai/create-ai-client';
 import { env } from './src/config/env';
 
 export default defineConfig({
@@ -23,7 +24,7 @@ export default defineConfig({
         environmentInfo: {
           'Base URL': env.BASE_URL,
           'Proveedor de IA': env.AI_PROVIDER,
-          'Modelo de IA': env.AI_MODEL ?? 'por defecto del proveedor',
+          'Modelo de IA': effectiveModel(env) ?? '—',
           'Auto-reparación': env.HEALING_MODE,
           Node: process.version,
         },

@@ -24,6 +24,11 @@ const PREFLIGHT_REQUEST: AiRequest = {
   maxTokens: 64,
 };
 
+/** Modelo que se usará: el configurado o el valor por defecto del proveedor; sin proveedor, ninguno. */
+export function effectiveModel(config: Env = env): string | undefined {
+  return config.AI_PROVIDER === 'none' ? undefined : (config.AI_MODEL ?? DEFAULTS[config.AI_PROVIDER].model);
+}
+
 /** La IA está configurada si hay proveedor y, salvo con Ollama, una clave. */
 export function isAiConfigured(config: Env = env): boolean {
   return config.AI_PROVIDER === 'ollama' || (config.AI_PROVIDER !== 'none' && Boolean(config.AI_API_KEY));
