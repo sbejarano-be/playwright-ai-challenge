@@ -16,11 +16,11 @@ export async function postJson(
       signal: AbortSignal.timeout(timeoutMs),
     });
   } catch (error) {
-    throw new AiProviderError(`No se pudo conectar con ${origin}: ${String(error)}`);
+    throw new AiProviderError(`[AMBIENTE] No se pudo conectar con ${origin}: ${String(error)}`);
   }
   const text = await response.text();
   if (!response.ok) {
-    throw new AiProviderError(`${origin} respondió ${response.status}: ${text.slice(0, 300)}`);
+    throw new AiProviderError(`[AMBIENTE] ${origin} respondió ${response.status}: ${text.slice(0, 300)}`);
   }
   return JSON.parse(text) as unknown;
 }

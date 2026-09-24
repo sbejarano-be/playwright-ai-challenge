@@ -6,7 +6,7 @@ export const PROJECT_ROOT = path.resolve(__dirname, '..', '..');
 
 const EnvSchema = z.object({
   BASE_URL: z.url().default('https://automationexercise.com'),
-  AI_PROVIDER: z.enum(['openai', 'anthropic', 'ollama', 'none']).default('none'),
+  AI_PROVIDER: z.enum(['openai', 'anthropic', 'gemini', 'ollama', 'none']).default('none'),
   AI_API_KEY: z.string().optional(),
   AI_MODEL: z.string().optional(),
   AI_BASE_URL: z.url().optional(),

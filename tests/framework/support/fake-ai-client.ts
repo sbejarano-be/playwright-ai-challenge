@@ -18,6 +18,18 @@ export class FakeAiClient implements AiClient {
   }
 }
 
+/** IA simulada cuyo proveedor rechaza todas las peticiones (clave inválida, modelo inexistente, sin saldo...). */
+export class FailingAiClient implements AiClient {
+  readonly provider = 'openai';
+  readonly model = 'fake-model';
+
+  constructor(private readonly error: Error) {}
+
+  async complete(): Promise<AiResponse> {
+    throw this.error;
+  }
+}
+
 export function available(client: AiClient): AiAvailability {
   return { available: true, client };
 }

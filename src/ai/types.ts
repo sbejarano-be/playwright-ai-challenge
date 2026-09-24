@@ -1,4 +1,4 @@
-export type AiProviderName = 'openai' | 'anthropic' | 'ollama';
+export type AiProviderName = 'openai' | 'anthropic' | 'gemini' | 'ollama';
 
 export interface AiRequest {
   /** Para qué se usa la llamada; da nombre al adjunto del reporte. */
