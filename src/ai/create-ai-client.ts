@@ -38,15 +38,19 @@ export async function detectAi(config: Env = env): Promise<AiAvailability> {
 /**
  * Verificación previa del proveedor. Si falla (clave inválida, modelo inexistente, sin saldo, parámetros no
  * admitidos), la IA se trata como no disponible: sus pruebas se omiten con el motivo y la prueba de ambiente falla.
+ * El aviso se inyecta para que las pruebas que simulan fallos no lo impriman en el log como si fuera real.
  */
-export async function verifyAi(client: AiClient): Promise<AiAvailability> {
+export async function verifyAi(
+  client: AiClient,
+  warn: (message: string) => void = console.warn,
+): Promise<AiAvailability> {
   try {
     await completeJson(client, PREFLIGHT_REQUEST, z.record(z.string(), z.unknown()));
     return { available: true, client };
   } catch (error) {
     const detail = (error instanceof Error ? error.message : String(error)).replace('[AMBIENTE] ', '');
     const reason = `el proveedor ${client.provider} (modelo ${client.model}) no responde correctamente: ${detail}`;
-    console.warn(`[AMBIENTE] IA configurada pero no disponible: ${reason}`);
+    warn(`[AMBIENTE] IA configurada pero no disponible: ${reason}`);
     return { available: false, reason };
   }
 }
